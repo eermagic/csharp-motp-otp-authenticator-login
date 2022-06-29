@@ -1,0 +1,168 @@
+﻿<main id="Page">
+    <div class="panel panel-default">
+        <div class="panel-heading">建立使用者</div>
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>登入 ID:</label>
+                        <input type="text" class="form-control" v-model="form.UserID">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>PIN (4 個數字):</label>
+                        <input type="text" class="form-control" v-model="form.UserPin">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label>密鑰 (16 個字元):</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" v-model="form.UserKey">
+                        <div class="input-group-btn">
+                            <button class="btn btn-default" type="button" v-on:click="ChgKey()">
+                                更換
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" v-on:click="GenUserQRCode()">產生使用者 QR Code</button>
+            <br />
+            <img class="img-thumbnail" style="width: 300px;height:300px;" v-bind:src="form.QrCodePath">
+        </div>
+    </div>
+
+
+    <div class="panel panel-default">
+        <div class="panel-heading">驗證登入</div>
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>登入 ID:</label>
+                        <input type="text" class="form-control" v-model="form.UserID">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>MOTP (6 個字元):</label>
+                        <input type="text" class="form-control" v-model="form.MOTP">
+                    </div>
+                </div>
+
+            </div>
+            <button type="button" class="btn btn-primary" v-on:click="CheckLogin()">驗證登入</button>
+            <br /><br />
+            <span style="color:red;">檢核結果:{{form.CheckResult}}</span>
+
+        </div>
+    </div>
+</main>
+@section scripts{
+    <script>
+        var Page = new Vue({
+            el: '#Page'
+            , data: function () {
+                var data = {
+                    form: {}
+                };
+                data.form =
+                {
+                    UserID: 'User1'
+                    , UserPin: '0000'
+                    , UserKey: ''
+                    , QrCodePath: ''
+                    , MOTP: ''
+                    , CheckResult:''
+                }
+                return data;
+            }
+            , created: function () {
+                var self = this;
+                self.ChgKey();
+            }
+            , methods: {
+                GetToken: function () {
+                    var token = '@Html.AntiForgeryToken()';
+                    token = $(token).val();
+                    return token;
+                }
+                // 產生使用者 QR Code
+                , GenUserQRCode: function () {
+                    var self = this;
+                    var postData = {};
+                    postData['UserID'] = self.form.UserID;
+                    postData['UserPin'] = self.form.UserPin;
+                    postData['UserKey'] = self.form.UserKey;
+                    $.blockUI({ message: '處理中...' });
+                    $.ajax({
+                        url:'@Url.Content("~/Home/GenUserQRCode")',
+                        method:'POST',
+                        dataType:'json',
+                        data: { inModel: postData, __RequestVerificationToken: self.GetToken() },
+                        success: function (datas) {
+                            if (datas.ErrMsg != '') {
+                                alert(datas.ErrMsg);
+                                $.unblockUI();
+                                return;
+                            }
+                            self.form.QrCodePath = datas.FileWebPath;
+                            $.unblockUI();
+                        },
+                        error: function (err) {
+                            alert(err.responseText);
+                            $.unblockUI();
+                        },
+                    });
+                }
+                // 驗證登入
+                , CheckLogin: function () {
+                    var self = this;
+                    var postData = {};
+                    postData['UserID'] = self.form.UserID;
+                    postData['UserPin'] = self.form.UserPin;
+                    postData['UserKey'] = self.form.UserKey;
+                    postData['MOTP'] = self.form.MOTP;
+                    $.blockUI({ message: '處理中...' });
+                    $.ajax({
+                        url:'@Url.Content("~/Home/CheckLogin")',
+                        method:'POST',
+                        dataType:'json',
+                        data: { inModel: postData, __RequestVerificationToken: self.GetToken() },
+                        success: function (datas) {
+                            if (datas.ErrMsg != '') {
+                                alert(datas.ErrMsg);
+                                $.unblockUI();
+                                return;
+                            }
+                            self.form.CheckResult = datas.CheckResult;
+                            $.unblockUI();
+                        },
+                        error: function (err) {
+                            alert(err.responseText);
+                            $.unblockUI();
+                        },
+                    });
+                }
+                // 更換密鑰
+                , ChgKey: function () {
+                    var self = this;
+                    var key = self.MarkRan(16);
+                    self.form.UserKey = key;
+                }
+                // 隨機密鑰
+                , MarkRan: function (length) {
+                    var result = '';
+                    var characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
+                    var charactersLength = characters.length;
+                    for (var i = 0; i < length; i++) {
+                        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+                    }
+                    return result;
+                }
+            }
+        })
+    </script>
+}
+
